@@ -7,7 +7,7 @@
 ## Copyright: University Hospital Ulm, Germany, 2025
 ## License: GNU General Public License v3 (GPL-3), https://www.gnu.org/licenses/gpl-3.0.html
 
-swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, results.dir = getwd(), subject.identifier = "NUMERICID-XXX", nthreads = 4, bam.pattern="*.bam$", suffix = "", samples = "single", plot = "no", remove.name.part = "") {
+swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, results.dir = getwd(), subject.identifier = "NUMERICID-XXX", nthreads = 4, bam.pattern="*.bam$", suffix = "", samples = "single", plot = "no", remove.name.part = "", bam.chrom.notation = "chr") {
   
     ## Help message
     args <- list(...)
@@ -19,7 +19,7 @@ swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, result
 "  If called from within an R environment:\n",
 "    swap_checker(argument1 = 'value1', argument2 = 'value2', ...)\n\n",
 "  If called directly from terminal (requires Rscript):\n",
-"    Rscript -e \"source('your/installation/path/Swap_checker.R'); swap_checker(argument1 = 'value1', argument2 = 'value2', ...)\"\n\n",
+"    Rscript -e \"source('your/installation/path/Swap_checker.R'); swap_checker(argument1 = 'value1', argument2 = 'value2', ...)\"\n\n\n",
 "Arguments:\n\n",
 "  bam.dir              Directory or list of directories that contain the BAM files to be processed. The BAM files must be coordinate-sorted\n",
 "                       and indexed. Both relative and absolute paths are accepted. A list of directories should have the format\n",
@@ -28,24 +28,22 @@ swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, result
 "                       If not specified, swap_checker will look for BAM files in the current working directory of the R environment. This will\n",
 "                       not work if swap_checker is called from a terminal via Rscript - in this case the bam.dir argument must always be\n",
 "                       specified, e.g. swap_checker(bam.dir = '.') if the BAM files are located in the current working directory.\n\n",
-"  snp.list             BED file containing a custom list of SNPs. You can use the SNPs_selected.bed file as a template for your own list. Make\n",
-"                       sure that you provide genomic coordinates according to the same genome version that was used for the alignment.\n",
-"                       If not specified, the program will use a list of 28 SNPs in genes frequently mutated in CLL (SNPs_selected.bed).\n\n",
-"  results.dir          Directory in which the results will be saved. By default, the results will be saved in the current working directory.\n\n",
+"  bam.chrom.notation   Specifies the chromosome notation used in the BAM files. Possible values: 'chr' (default, to be used when chromosomes\n",
+"                       are named \"chr1\", \"chr2\", etc.) and 'nochr' (to be used when chromosomes are named \"1\", \"2\", etc.).\n\n",
 "  bam.pattern          This is an optional argument that helps to limit the analysis to a subset of the available BAM files, based on file\n",
 "                       name patterns. For example, if bam.dir contains both unsorted and sorted BAM files as different intermediate outputs\n",
 "                       of an NGS processing pipeline, running swap_checker() will result in error because the function accepts only\n",
 "                       coordinate-sorted and indexed BAM files. However, if file names of the sorted BAM files end in \"sorted.bam\",\n",
 "                       swap_checker(bam.pattern = '*.sorted.bam$') will analyze only the sorted BAM files without errors. The value of the\n",
-"                       \"bam.pattern\" argument should be a regular expression like that in the previous simple example. Regular expressions are\n",
-"                       a powerful tool and their use allows very precise selection of BAM files that have to be analyzed. Inexperienced users\n",
+"                       \"bam.pattern\" argument should be a regular expression like in the previous simple example. Regular expressions are a\n",
+"                       powerful tool and their use allows very precise selection of BAM files that have to be analyzed. Inexperienced users\n",
 "                       who would wish to use them in more complicated scenarios might want to consult a quick guide to regular expression\n",
 "                       syntax, such as https://www.rexegg.com/regex-quickstart.html.\n\n",
+"  snp.list             BED file containing a custom list of SNPs. You can use the SNPs_selected.bed file as a template for your own list. Make\n",
+"                       sure that you provide genomic coordinates according to the same genome version that was used for the alignment.\n",
+"                       If not specified, the program will use a list of 28 SNPs in genes frequently mutated in CLL (SNPs_selected.bed) and\n",
+"                       will assume that your BAM files are aligned to hg19.\n\n",
 "  nthreads             Number of threads to use. Each BAM file will be launched on a separate thread. Works only on Unix and macOS. Default: 4\n\n",
-"  suffix               Optional suffix that can be appended to the main part of result file names. A time stamp suffix is always added\n",
-"                       automatically and if an optional suffix is specified, it will appear between the main part of the file name and the\n",
-"                       time stamp. For example, swap_checker(suffix = 'ProjectX') will result in the creation of result files with names like\n",
-"                       \"Pairwise_concordance_ProjectX_20250531_174936.csv\" and \"SNP_readcounts_ProjectX_20250531_174936.csv\"\n\n",
 "  samples              Argument with two possible values: 'single' (default) and 'multiple'. Specifies whether all BAM files originate from\n",
 "                       separate individuals ('single'), in which case swap_checker() will be able to identify only unexpectedly matching\n",
 "                       samples, or there are more than one sample per subject ('multiple'), which will allow swap_checker() to also check\n",
@@ -64,6 +62,11 @@ swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, result
 "                       the file name by using a regular expression, e.g. '^(\\\\d+)-.*$' (this is equivalent to 'NUMERICID-XXX'). Inexperienced\n",
 "                       users might want to consult a quick guide to regular expression syntax, such as\n",
 "                       https://www.rexegg.com/regex-quickstart.html.\n\n",
+"  results.dir          Directory in which the results will be saved. By default, the results will be saved in the current working directory.\n\n",
+"  suffix               Optional suffix that can be appended to the main part of result file names. A time stamp suffix is always added\n",
+"                       automatically and if an optional suffix is specified, it will appear between the main part of the file name and the\n",
+"                       time stamp. For example, swap_checker(suffix = 'ProjectX') will result in the creation of result files with names like\n",
+"                       \"Pairwise_concordance_ProjectX_20250531_174936.csv\" and \"SNP_readcounts_ProjectX_20250531_174936.csv\"\n\n",
 "  plot                 Optional argument with two possible values: 'no' (default) or 'yes'. If set to 'yes', swap_checker() will produce a\n",
 "                       correlation plot. Such a plot can be useful only for relatively small cohorts, otherwise it will be too crowded and\n",
 "                       unreadable if printed on a single page. If sample names (taken from BAM file names) are too long and take up most of\n",
@@ -72,7 +75,31 @@ swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, result
 "  remove.name.part     Optional argument related to the plotting function (see above). Its value should be a regular expression defining\n",
 "                       a part of the sample name that should be removed. For example, if all BAM files end in \"_L001_R1_bwa.deduplicated.bam,\n",
 "                       swap_checker(plot = 'yes', remove.name.part = '_L001.*$') will produce a correlation plot and the displayed sample\n",
-"                       names will not contain the redundant part from the BAM file names.\n\n")
+"                       names will not contain the redundant part from the BAM file names.\n\n\n",
+"Output files:\n\n",
+"  Pairwise_concordance_[suffix]_[time stamp].csv       This is the main results file, a table in CSV format with the following columns:\n",
+"                                                       - \"X_bam\" and \"Y_bam\" contain the sample names (taken from the input BAM files),\n",
+"                                                       arranged so that each sample in the first column is matched against any of the\n",
+"                                                       remaining samples in the second column;\n",
+"                                                       - \"concordant_snps\": number of the concordant SNPs;\n",
+"                                                       - \"discordant_snps\": number of the discordant SNPs;\n",
+"                                                       - \"discordant_snps_detailed\": genomic coordinates of the discordant SNPs;\n",
+"                                                       - \"fract_concordant_snps\": fraction of the concordant SNPs;\n",
+"                                                       - \"cor_coef\": Pearson's correlation coefficient;\n",
+"                                                       - \"XY_possibly_paired\": estimation whether samples originate from the same\n",
+"                                                       individual - \"Yes\" or \"No\". Positive findings are listed first.\n\n",
+"  SNP_readcounts_[suffix]_[time stamp].csv             This is a detailed table with the number of the reads that support the reference or\n",
+"                                                       the alternative allele at each of the assessed SNP positions in each sample. Columns:\n",
+"                                                       - \"BAM\": sample name (taken from the respective input BAM file);\n",
+"                                                       - \"loci\": genomic coordinates of the SNP;\n",
+"                                                       - \"ref_rc\": read counts supporting the reference allele;\n",
+"                                                       - \"alt_rc\": read counts supporting the alternative allele;\n",
+"                                                       - \"vaf\": variant allele fraction of the alternative allele.\n\n",
+"  Expected_concordant_pairs_[suffix]_[time stamp].csv  This is an optional subset of the main table, created if \"samples\" was set to\n",
+"                                                       'multiple'. It contains only the rows for combinations of samples that are expected\n",
+"                                                       to be concordant because they should originate from the same individual.\n\n",
+"  Pairwise_concordance_[suffix]_[time stamp].png       This is an optional correlation plot (created if \"plot\" was set to 'yes') based on\n",
+"                                                       the correlation coefficients from the main results table.\n\n")
     return(invisible(NULL))
   } else {
     
@@ -102,24 +129,41 @@ swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, result
       )
     }
     
+    valid_bam.chrom.notation <- c("chr", "nochr")
+    
+    if (!bam.chrom.notation %in% valid_bam.chrom.notation) {
+      stop(
+        sprintf(
+          "Invalid value for argument 'bam.chrom.notation': '%s'.\nValid options are: %s.",
+          bam.chrom.notation,
+          paste(shQuote(valid_bam.chrom.notation), collapse = " or ")
+        ),
+        call. = FALSE
+      )
+    }
+    
+    
     ## Load necessary packages
     library(maftools) 
     
     ## Give a warning if the user did not specify a custom list of SNPs
     if (is.data.frame(snp.list)) {
-      cat("\033[31mSwap_checker will use the list of SNPs provided with the program. If this is not what you want, use the snp.list argument to specify your own list of SNPs.\033[0m\n", fill = TRUE)
+      cat("\033[31mSwap_checker will use the list of SNPs provided with the program and will assume that your BAM files are aligned to hg19. If this is not what you want, use the snp.list argument to import your own list of SNPs from a BED file and make sure that the coordinates used in the BED file are according to the genome version that was used for the alignment.\033[0m\n", fill = TRUE)
     }
     
     ## Prepare a list of BAM files to be scanned for possible sample swaps
-    bams <- bam.list <- list.files(path=bam.dir,pattern=bam.pattern, full.names = TRUE) # Enter the path(s) to one or several directories with indexed bam files (i.e. the bai files must also be present). The pattern can be used to select only a particular type of BAM files from the data directory. For example, if you have both "normal" and realigned BAM files in the same directory, you can perform the analysis only on the realigned files if they have a respective uniform file name ending, using a pattern like e.g. pattern="*.realigned.bam$"
+    bams <- bam.list <- list.files(path=bam.dir,pattern=bam.pattern, full.names = TRUE)
 
     ### Check for sample swaps
-    res = sampleSwaps(bams = bams, ncores = nthreads, snps = snp.list) # Set the "ncores" parameter according to the CPU cores that are available on your system.
+    res = sampleSwaps(bams = bams, ncores = nthreads, snps = snp.list, bam.chrom.notation = bam.chrom.notation)
     
     ### Save results
     now <- Sys.time()
     write.csv(res$pairwise_comparison, file = file.path(results.dir, paste0("Pairwise_concordance_", paste0(suffix, "_"), format(now, "%Y%m%d_%H%M%S"), ".csv")), row.names = FALSE) # Save the pairwise concordance table
     write.csv(res$SNP_readcounts, file = file.path(results.dir, paste0("SNP_readcounts_", paste0(suffix, "_"), format(now, "%Y%m%d_%H%M%S"), ".csv")), row.names = FALSE) # Save SNP readcounts for ref and alt alleles for all samples
+    
+    ### Delete temporary files
+    unlink(gsub("\\.bam$", "_nucleotide_counts.tsv",bams))
     
     ### Optional step - Check whether samples that should be concordant are concordant indeed
     ## Samples that originate from the same subject should be concordant with each other. This can be tested automatically 
@@ -200,44 +244,18 @@ swap_checker <- function(..., bam.dir = getwd(), snp.list = cll.snp.list, result
 ## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ## SOFTWARE.
 
-#' Identify sample swaps and similarities - modified version to accommodate for the case when there are no discordant SNPs
-#' @description Given a list BAM files, the function genotypes known SNPs and identifies potentially related samples. For the source of SNPs, see reference
-#' @param bams Input bam files. Required.
-#' @param build reference genome build. Default "hg19". Can be hg19 or hg38
-#' @param prefix Prefix to add or remove from contig names in SNP file. If BAM files are aligned GRCh37/38 genome, use prefix `chr` to `add`
-#' @param add If prefix is used, default is to add prefix to contig names in SNP file. If FALSE prefix will be removed from contig names.
-#' @param min_depth Minimum read depth for a SNP to be considered. Default 30.
-#' @param ncores Default 4. Each BAM file will be launched on a separate thread. Works only on Unix and macOS.
-#' @param ... Additional arguments passed to \code{\link{bamreadcounts}}
-#' @return a list with results summarized
-#' @export
-#' @references Westphal, M., Frankhouser, D., Sonzone, C. et al. SMaSH: Sample matching using SNPs in humans. BMC Genomics 20, 1001 (2019). https://doi.org/10.1186/s12864-019-6332-7
-#'
-sampleSwaps = function(bams = NULL, build = "hg19", prefix = NULL, add = TRUE, min_depth = 30, ncores = 4 , snps = "", ...){
+sampleSwaps = function(bams = NULL, bam.chrom.notation = bam.chrom.notation, min_depth = 30, ncores = 4 , snps = "", ...){
   
   if(length(bams) < 2){
     stop("Needs 2 or more BAM files!")
   }
   
-  #build = match.arg(arg = build, choices = c("hg19", "hg38"))
-  
-  #if(build == "hg19"){
-  #snps = system.file("extdata", "hg19_smash_snps.tsv.gz", package = "maftools")
-  #snps = "inst/extdata/hg19_smash_snps.tsv.gz"
-  #}else{
-  #snps = "inst/extdata/hg38_smash_snps.tsv.gz"
-  #snps = system.file("extdata", "hg38_smash_snps.tsv.gz", package = "maftools")
-  #}
   if (is.character(snps)) {
     snps = data.table::fread(input = snps, sep = "\t")
   }
   
-  if(!is.null(prefix)){
-    if(add){
-      snps$chr = paste(prefix, snps$chr, sep = '')
-    }else{
-      snps$chr = gsub(pattern = prefix, replacement = '', x = snps$chr, fixed = TRUE)
-    }
+  if(bam.chrom.notation == "nochr") {
+    snps$chr = gsub(pattern = "chr", replacement = '', x = snps$chr, fixed = TRUE)
   }
   
   rc = bamreadcounts(bam = bams, loci = snps, nthreads = ncores, ...)
@@ -282,7 +300,6 @@ sampleSwaps = function(bams = NULL, build = "hg19", prefix = NULL, add = TRUE, m
     stop("Zero SNPs to analyze!")
   }
   rc_bind = rc_bind[, total := ref_rc + alt_rc][total > min_depth]
-  
   
   rc_df = data.table::dcast(data = rc_bind, loci ~ sample, value.var = 'vaf', fill = NA)
   data.table::setDF(x = rc_df, rownames = rc_df$loci)
@@ -335,12 +352,12 @@ sampleSwaps = function(bams = NULL, build = "hg19", prefix = NULL, add = TRUE, m
   
   sample_matches = sample_matches[1:(length(sample_matches)-1)]
   
-  pos_mathces = lapply(sample_matches, function(sample_pair){
+  pos_matches = lapply(sample_matches, function(sample_pair){
     if(nrow(sample_pair) > 0){
       unique(unlist(sample_pair[XY_possibly_paired == "Yes", .(X_bam, Y_bam)], use.names = FALSE))
     }
   })
-  pos_mathces = pos_mathces[which(lapply(pos_mathces, function(x) length(x) > 0) == TRUE)]
+  pos_matches = pos_matches[which(lapply(pos_matches, function(x) length(x) > 0) == TRUE)]
   
   cat("Done!\n")
   
@@ -353,7 +370,7 @@ sampleSwaps = function(bams = NULL, build = "hg19", prefix = NULL, add = TRUE, m
       fill = TRUE
     ),
     pairwise_comparison = data.table::rbindlist(sample_matches)[order(XY_possibly_paired, decreasing = TRUE)],
-    BAM_matches = pos_mathces
+    BAM_matches = pos_matches
   )
 }
 
